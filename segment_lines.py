@@ -57,7 +57,7 @@ def convert_maxima_to_medial_seams(fully_connected_slice_maxima: List[List[Tuple
 def calculate_medial_seams(image: ImageClass, r: int = 8, b: float = 0.0003) -> numpy.ndarray:
     grayscale_image = image.convert("L")
     image_array = numpy.asarray(grayscale_image)
-    sobel_image = ndimage.sobel(image_array)  # TODO: use already binarised image and apply otsu threshold
+    sobel_image = ndimage.sobel(image_array)
     slices = numpy.array_split(sobel_image, r, axis=1)
 
     # Calculate maxima for each slice
@@ -67,13 +67,12 @@ def calculate_medial_seams(image: ImageClass, r: int = 8, b: float = 0.0003) -> 
         slice_maxima.append(maxima_locations)
 
     # Match maxima locations across slices to extract seams
-    # TODO: maybe function
     connected_slice_maxima = {}  # maps the end point of a line to the list of points that are part of this line
     for slice_idx in trange(r - 1, desc="Matching maxima...", leave=False):
         for left_maximum_idx, left_maximum in enumerate(slice_maxima[slice_idx]):
             right_maxima = slice_maxima[slice_idx + 1]
             if len(right_maxima) == 0:
-                continue  # TODO: properly handle empty maxima arrays [also if they are on the left
+                continue
 
             dists_left_to_right = numpy.absolute(left_maximum - right_maxima)
             min_dist_idx_right = numpy.argmin(dists_left_to_right)
@@ -82,7 +81,6 @@ def calculate_medial_seams(image: ImageClass, r: int = 8, b: float = 0.0003) -> 
             min_dist_idx_left = numpy.argmin(dists_right_to_left)
 
             if min_dist_idx_left == left_maximum_idx:
-                # print(f"({left_maximum_idx}, {left_maximum}), ({min_dist_idx_right}, {right_maximum})")
                 start_point = (int(round(left_maximum)), slice_idx)
                 end_point = (int(round(right_maximum)), slice_idx + 1)
                 if start_point not in connected_slice_maxima.keys():
@@ -91,7 +89,6 @@ def calculate_medial_seams(image: ImageClass, r: int = 8, b: float = 0.0003) -> 
                     connected_slice_maxima[end_point] = connected_slice_maxima[start_point] + [end_point]
                     connected_slice_maxima.pop(start_point)
 
-    # TODO: maybe merge seams somehow
     fully_connected_slice_maxima = [v for k, v in connected_slice_maxima.items() if len(v) == r]
 
     slice_widths = [image_slice.shape[1] for image_slice in slices]
@@ -162,7 +159,7 @@ def calculate_minimum_energy_map(medial_seam: numpy.ndarray, local_energy_map: n
     minimum_energy_map = numpy.zeros_like(local_energy_map)
     minimum_energy_map[:, 0] = local_energy_map[:, 0]
 
-    for j in trange(1, width, desc="Calculating minimum energy map...", leave=False):  # TODO: can this be optimised?
+    for j in trange(1, width, desc="Calculating minimum energy map...", leave=False):
         for i in range(height):
             previous_energies = [minimum_energy_map[i, j - 1]]
             if i - 1 >= 0:
@@ -226,8 +223,8 @@ def main(args: argparse.Namespace) -> NoReturn:
         output_filename = f"{base_output_filename}_lines{image_path.suffix}"
         output_image = ImageDraw.Draw(input_image)
         if args.debug:
-            output_filename = f"{base_output_filename}_lines_debug{image_path.suffix}"
-            for i in range(r - 1):
+            output_filename = f"{base_output_filename}_lines_debug_r{args.r}_b{args.b}{image_path.suffix}"
+            for i in range(args.r - 1):
                 border_x = (i + 1) * slice_width
                 patch_border = [(border_x, 0), (border_x, input_image.height - 1)]
                 output_image.line(patch_border, fill=(255, 0, 255), width=3)
