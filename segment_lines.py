@@ -54,7 +54,7 @@ def convert_maxima_to_medial_seams(fully_connected_slice_maxima: List[List[Tuple
     return numpy.asarray(medial_seams)
 
 
-def calculate_medial_seams(image: ImageClass, r: int = 8, b: float = 0.0003) -> numpy.ndarray:  # TODO: tune params
+def calculate_medial_seams(image: ImageClass, r: int = 8, b: float = 0.0003) -> numpy.ndarray:
     grayscale_image = image.convert("L")
     image_array = numpy.asarray(grayscale_image)
     sobel_image = ndimage.sobel(image_array)  # TODO: use already binarised image and apply otsu threshold
@@ -213,14 +213,13 @@ def calculate_separating_seams(medial_seams: numpy.ndarray, energy_map: numpy.nd
 def main(args: argparse.Namespace) -> NoReturn:
     for image_path in tqdm(args.input_images, desc="Processing images...", leave=False):
         input_image = Image.open(image_path)
-        r = 8
-        slice_width = input_image.width // r
+        slice_width = input_image.width // args.r
 
         # A. Medial Seam Computation
-        medial_seams = calculate_medial_seams(input_image, r=r)
+        medial_seams = calculate_medial_seams(input_image, r=args.r, b=args.b)
 
         # B. Separating Seam Computation
-        energy_map = calculate_energy_map(input_image)
+        energy_map = calculate_energy_map(input_image, sigma=args.sigma)
         separating_seams = calculate_separating_seams(medial_seams, energy_map)
 
         base_output_filename = args.output_dir / f"{image_path.stem}"
@@ -253,4 +252,7 @@ if __name__ == '__main__':
     parser.add_argument("--output-dir", type=Path, default="images",
                         help="The directory in which the resulting image(s) should be saved")
     parser.add_argument("--debug", action="store_true", default=False, help="Display additional information")
+    parser.add_argument("--r", type=int, default=8, help="Hyperparameter r")
+    parser.add_argument("--b", type=float, default=0.0003, help="Hyperparameter b")
+    parser.add_argument("--sigma", type=float, default=3.0, help="Hyperparameter sigma")
     main(parser.parse_args())
