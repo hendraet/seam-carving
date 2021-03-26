@@ -91,7 +91,7 @@ def calculate_medial_seams(image: ImageClass, r: int = 8, b: float = 0.0003) -> 
                     connected_slice_maxima[end_point] = connected_slice_maxima[start_point] + [end_point]
                     connected_slice_maxima.pop(start_point)
 
-    # TODO: maybe merge lines somehow
+    # TODO: maybe merge seams somehow
     fully_connected_slice_maxima = [v for k, v in connected_slice_maxima.items() if len(v) == r]
 
     slice_widths = [image_slice.shape[1] for image_slice in slices]
@@ -162,7 +162,7 @@ def calculate_minimum_energy_map(medial_seam: numpy.ndarray, local_energy_map: n
     minimum_energy_map = numpy.zeros_like(local_energy_map)
     minimum_energy_map[:, 0] = local_energy_map[:, 0]
 
-    for j in trange(1, width):  # TODO: can this be optimised?
+    for j in trange(1, width, desc="Calculating minimum energy map...", leave=False):  # TODO: can this be optimised?
         for i in range(height):
             previous_energies = [minimum_energy_map[i, j - 1]]
             if i - 1 >= 0:
@@ -211,18 +211,7 @@ def calculate_separating_seams(medial_seams: numpy.ndarray, energy_map: numpy.nd
 
 
 def main(args: argparse.Namespace) -> NoReturn:
-    # TODO: impl image argument and remove this
-    input_images = [
-        "test_images/00000020.jpg",
-        "test_images/00000048.jpg",
-        "test_images/00000055.jpg",
-        "test_images/00000062.jpg",
-        "test_images/069a.jpg",
-        "test_images/083a.jpg"
-    ]
-    input_images = [Path(path) for path in input_images]
-
-    for image_path in tqdm(input_images, desc="Processing images...", leave=False):
+    for image_path in tqdm(args.input_images, desc="Processing images...", leave=False):
         input_image = Image.open(image_path)
         r = 8
         slice_width = input_image.width // r
@@ -234,34 +223,34 @@ def main(args: argparse.Namespace) -> NoReturn:
         energy_map = calculate_energy_map(input_image)
         separating_seams = calculate_separating_seams(medial_seams, energy_map)
 
+        base_output_filename = args.output_dir / f"{image_path.stem}"
+        output_filename = f"{base_output_filename}_lines{image_path.suffix}"
+        output_image = ImageDraw.Draw(input_image)
         if args.debug:
-            base_output_filename = args.output_dir / f"{image_path.stem}"
-            # visualize lines
-            debug_image = ImageDraw.Draw(input_image)
+            output_filename = f"{base_output_filename}_lines_debug{image_path.suffix}"
             for i in range(r - 1):
                 border_x = (i + 1) * slice_width
                 patch_border = [(border_x, 0), (border_x, input_image.height - 1)]
-                debug_image.line(patch_border, fill=(255, 0, 255), width=3)
+                output_image.line(patch_border, fill=(255, 0, 255), width=3)
             for medial_seam in medial_seams:
                 points = [(x, y) for y, x in medial_seam]
-                debug_image.line(points, fill=(0, 255, 0), width=5)
-            for separating_seam in separating_seams:
-                points = [(x, y) for y, x in separating_seam]
-                debug_image.line(points, fill=(255, 0, 0), width=5)
+                output_image.line(points, fill=(0, 255, 0), width=5)
 
-            output_filename = f"{base_output_filename}_lines{image_path.suffix}"
-            input_image.save(output_filename)
-        break  # TODO
+        for separating_seam in separating_seams:
+            points = [(x, y) for y, x in separating_seam]
+            output_image.line(points, fill=(255, 0, 0), width=5)
+
+        input_image.save(output_filename)
 
 
 if __name__ == '__main__':
-    # TODO: remove code from other repo
-    # TODO: make public
-
     parser = argparse.ArgumentParser(
         description="segment a given image",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
-    parser.add_argument("--output-dir", type=Path, default="images")
-    parser.add_argument("--debug", action="store_true", default=False)
+    parser.add_argument("input_images", type=Path, nargs="+",
+                        help="Filename(s) of the image(s) that should be processed")
+    parser.add_argument("--output-dir", type=Path, default="images",
+                        help="The directory in which the resulting image(s) should be saved")
+    parser.add_argument("--debug", action="store_true", default=False, help="Display additional information")
     main(parser.parse_args())
