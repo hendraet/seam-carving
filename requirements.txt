@@ -1,8 +1,8 @@
-csaps==1.0.3
-matplotlib==3.3.4
-numpy==1.19.5
-Pillow==8.1.2
-scikit-image==0.18.1
-scipy==1.6.1
-tqdm==4.59.0
+csaps==1.1.0
+matplotlib==3.5.3
+numpy==1.23.2
+Pillow==9.2.0
+scikit-image==0.19.3
+scipy==1.9.1
+tqdm==4.64.0
 
